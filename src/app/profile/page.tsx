@@ -24,18 +24,45 @@ export default function Profile() {
     
     const fetchUserPosts = async () => {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // First get all posts for this user
+      const { data: postsData, error: postsError } = await supabase
         .from('posts')
-        .select(`
-          *,
-          user:user_id(id, username, email)
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (!error) {
-        setPosts(data || []);
+      if (postsError) {
+        console.error('Error fetching user posts:', postsError);
+        setLoading(false);
+        return;
       }
+      
+      if (!postsData || postsData.length === 0) {
+        setPosts([]);
+        setLoading(false);
+        return;
+      }
+      
+      // Get user data
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+      }
+      
+      // Join the data manually
+      const postsWithUser = postsData.map(post => ({
+        ...post,
+        user: userData || null
+      }));
+      
+      console.log('User posts with user data:', postsWithUser);
+      setPosts(postsWithUser);
       setLoading(false);
     };
 
