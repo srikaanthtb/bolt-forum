@@ -1,36 +1,143 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bolt Forum
+
+A Twitter-like forum web application built with Next.js and Supabase.
+
+## Features
+
+- User authentication (sign up, sign in, sign out)
+- Create posts
+- View posts from all users
+- Like posts
+- User profiles
+
+## Technologies Used
+
+- Next.js 14 (App Router)
+- TypeScript
+- Tailwind CSS
+- Supabase (Authentication & Database)
+- date-fns
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js (v18+)
+- npm or yarn
+- Supabase account
+
+### Setup
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/yourusername/bolt-forum.git
+cd bolt-forum
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+# or
+yarn
+```
+
+3. Set up Supabase:
+
+   - Create a new Supabase project
+   - Set up the database schema (see below)
+   - Get your Supabase URL and anon key
+
+4. Create a `.env.local` file in the root directory:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+5. Run the development server:
 
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+6. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database Schema
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Users Table
 
-## Learn More
+This table is automatically created by Supabase Auth.
 
-To learn more about Next.js, take a look at the following resources:
+### Posts Table
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```sql
+create table public.posts (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  content text not null,
+  created_at timestamp with time zone default now() not null
+);
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+-- Enable RLS
+alter table public.posts enable row level security;
 
-## Deploy on Vercel
+-- Policies
+create policy "Users can read all posts"
+  on posts
+  for select
+  using (true);
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+create policy "Users can insert their own posts"
+  on posts
+  for insert
+  with check (auth.uid() = user_id);
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+create policy "Users can update their own posts"
+  on posts
+  for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete their own posts"
+  on posts
+  for delete
+  using (auth.uid() = user_id);
+```
+
+### Likes Table
+
+```sql
+create table public.likes (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  post_id uuid references public.posts(id) on delete cascade not null,
+  created_at timestamp with time zone default now() not null,
+  unique (user_id, post_id)
+);
+
+-- Enable RLS
+alter table public.likes enable row level security;
+
+-- Policies
+create policy "Users can read all likes"
+  on likes
+  for select
+  using (true);
+
+create policy "Users can insert their own likes"
+  on likes
+  for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their own likes"
+  on likes
+  for delete
+  using (auth.uid() = user_id);
+```
+
+## License
+
+MIT
